@@ -1,0 +1,375 @@
+                        ; --------------------------------------
+                        ; zasm: assemble "MON2014.ASM"
+                        ; date: 2019-04-10 22:18:31
+                        ; --------------------------------------
+
+
+                        ; MON2014:	A monitor program for unmodified RC2014 micro-computers,
+                        ;		designed to run completely in memory, independent from BASIC.
+                        ;
+                        ; Copyright (C) 2018-2019, Bradan J. Wolbeck (CompaqDisc)
+                        ; <bwolbeck@compaqdisc.com>
+                        ;
+                        ; Please see LICENSE in this project's root directory for license information.
+                        ;
+                        ; Author's Notes:	To properly configure ROM BASIC, set memory top to 35071
+                        ;			Use of a modified HEXLOAD.BAS (provided in the project
+                        ;			repository) is recommended for loading this program.
+                        
+                        #include "include/CHARSET.ASM"
+                        ; CHARSET.ASM:	Some ASCII defines for use in strings.
+                        ;
+                        ; Copyright (C) 2018-2019, Bradan J. Wolbeck (CompaqDisc)
+                        ; <bwolbeck@compaqdisc.com>
+                        ;
+                        ; CHARSET.ASM is a part of MON2014.
+                        ;
+                        ; Please see LICENSE in this project's root directory for license information.
+                        
+001B:                   ESC:	.EQU 27		; ESCAPE KEY
+000D:                   CR:	.EQU 13		; CARRIAGE RETURN
+000A:                   LF:	.EQU 10		; LINE FEED
+0009:                   TAB:	.EQU  9		; TAB KEY
+0000:                   EOS:	.EQU  0		; END OF STRING / NULL
+FF00:                   A_BUFFER:	.EQU $FF00
+                        
+F000:                   	.ORG	$F000
+                        
+F000:                   MON2014:
+                        	; This label is called from BASIC via HEXLOAD.BAS
+                        
+F000:                   MON2014.BEGIN:
+                        	; Clear screen, and home cursor.
+F000: 21FEF0   [10]     	LD	HL,STRING.CLEAR_SCREEN
+F003: CD84F0   [27]     	CALL	PUTS
+F006: 2103F1   [37]     	LD	HL,STRING.HOME_CURSOR
+F009: CD84F0   [54]     	CALL	PUTS
+                        	; Print title and copyright notice.
+F00C: 21C3F0   [64]     	LD	HL,STRING.COPYRIGHT
+F00F: CD84F0   [81]     	CALL	PUTS
+                        
+F012:                   MON2014.PROMPT_USER:
+                        	; Print ']' prompt.
+F012: 21F6F0   [10]     	LD	HL,STRING.PROMPT
+F015: CD84F0   [27]     	CALL	PUTS
+                        
+                        	; Idealy the main structure should look like:
+                        	; Prompt > Get Input > Parse/Correct > Error/Execute > Repeat
+                        
+                        	; Set HL to head of input buffer
+                        	; Get string to buffer.
+F018: 2100FF   [37]     	LD	HL,A_BUFFER
+F01B: CD8DF0   [54]     	CALL	GETS
+                        
+F01E:                   MON2014.PARSE_INPUT:
+F01E: 7E       [ 7]     	LD	A,(HL)
+                        
+                        	; switch(A)
+F01F: FE52     [14]     	CP	'R'				; case 'R':
+F021: C8       [19|25]  	RET	Z
+                        
+F022: FE47     [26]     	CP	'G'				; case 'G':
+F024: 2812     [33|38]  	JR	Z,MON2014.COMMAND.GOTO
+                        
+F026: FE53     [40]     	CP	'S'				; case 'S':
+F028: 2816     [47|52]  	JR	Z,MON2014.COMMAND.STORE
+                        
+F02A: FE58     [54]     	CP	'X'				; case 'X':
+F02C: 2814     [61|66]  	JR	Z,MON2014.COMMAND.EXAMINE
+                        
+F02E: FE43     [68]     	CP	'C'				; case 'C':
+F030: 2812     [75|80]  	JR	Z,MON2014.COMMAND.CFCARD	; CF not implemented
+                        
+F032: FE3F     [82]     	CP	'?'				; case '?':
+F034: 2810     [89|94]  	JR	Z,MON2014.COMMAND.HELP
+                        
+F036: 1816     [101]    	JR	MON2014.ERROR			; default:
+                        
+F038:                   MON2014.COMMAND.GOTO:
+F038: 23       [ 6]     	INC	HL				; Skip past command and space
+F039: 23       [12]     	INC	HL
+F03A: CD56F0   [29]     	CALL	HEX2BC
+F03D: 6069     [37]     	LD	HL,BC
+F03F: E9       [41]     	JP	(HL)
+                        
+F040:                   MON2014.COMMAND.STORE:
+F040: 180C     [12]     	JR	MON2014.ERROR
+                        
+F042:                   MON2014.COMMAND.EXAMINE:
+F042: 180A     [12]     	JR	MON2014.ERROR
+                        
+F044:                   MON2014.COMMAND.CFCARD:
+F044: 1808     [12]     	JR	MON2014.ERROR
+                        
+F046:                   MON2014.COMMAND.HELP:
+F046: 2107F1   [10]     	LD	HL,STRING.ACTION.HELP
+F049: CD84F0   [27]     	CALL	PUTS
+F04C: 18C4     [39]     	JR	MON2014.PROMPT_USER
+                        
+F04E:                   MON2014.ERROR:
+                        	; Print a trailing '?', indicating an error.
+F04E: 21FBF0   [10]     	LD	HL,STRING.ERROR
+F051: CD84F0   [27]     	CALL	PUTS
+F054: 18BC     [39]     	JR	MON2014.PROMPT_USER
+                        
+F056:                   HEX2BC:
+                        	; Takes HL as a pointer to a buffer.
+                        	; Gets value from ASCII HEX (reads 4 bytes) and stores in BC.
+F056: CD61F0   [17]     	CALL	HEX2A
+F059: 47       [21]     	LD	B,A
+F05A: 23       [27]     	INC	HL
+F05B: 23       [33]     	INC	HL
+F05C: CD61F0   [50]     	CALL	HEX2A
+F05F: 4F       [54]     	LD	C,A
+F060: C9       [64]     	RET
+                        
+F061:                   HEX2A:
+                        	; Takes HL as a pointer to a buffer.
+                        	; Gets value from ASCII HEX (reads 2 bytes) and stores in A.
+F061: 5E23562B [26]     	LD	DE,(HL)
+                        
+F065: 7B       [30]     	LD	A,E
+F066: CD74F0   [47]     	CALL	HEX2A.1
+F069: 87       [51]     	ADD	A,A
+F06A: 87       [55]     	ADD	A,A
+F06B: 87       [59]     	ADD	A,A
+F06C: 87       [63]     	ADD	A,A
+F06D: 5F       [67]     	LD	E,A
+F06E: 7A       [71]     	LD	A,D
+F06F: CD74F0   [88]     	CALL	HEX2A.1
+F072: B3       [92]     	OR	E
+F073: C9       [102]    	RET
+                        
+F074:                   HEX2A.1:
+F074: D630     [ 7]     	SUB	A,'0'
+F076: FE0A     [14]     	CP	10
+F078: D8       [19|25]  	RET	C
+F079: D607     [26]     	SUB	A,'A'-'0'-10
+F07B: C9       [36]     	RET
+                        
+                        #include "include/STDIO.ASM"
+                        ; STDIO.ASM:	A text function interface for MON2014.
+                        ;
+                        ; Copyright (C) 2018-2019, Bradan J. Wolbeck (CompaqDisc)
+                        ; <bwolbeck@compaqdisc.com>
+                        ;
+                        ; STDIO.ASM is a part of MON2014.
+                        ;
+                        ; Please see LICENSE in this project's root directory for license information.
+                        
+                        #include "ACIA.ASM"
+                        ; ACIA.ASM: A simple interface to the ACIA routines already in the
+                        ;           RC2014's MS-BASIC ROM.
+                        ;
+                        ; Copyright (C) 2018-2019, Bradan J. Wolbeck (CompaqDisc)
+                        ; <bwolbeck@compaqdisc.com>
+                        ;
+                        ; ACIA.ASM is a part of MON2014.
+                        ;
+                        ; Please see LICENSE in this project's root directory for license information.
+                        
+F07C:                   ACIA_PUTCHAR:
+                        	; Outputs the byte in A.
+F07C: CF       [11]     	RST	08H
+F07D: C9       [21]     	RET
+                        
+F07E:                   ACIA_GETCHAR:
+                        	; Collects the next byte in A.
+F07E: D7       [11]     	RST	10H
+F07F: C9       [21]     	RET
+                        
+F080:                   PUTCHAR:
+F080: 18FA     [12]     	JR	ACIA_PUTCHAR
+                        
+F082:                   GETCHAR:
+F082: 18FA     [12]     	JR	ACIA_GETCHAR
+                        
+F084:                   PUTS:
+                        	; OutPUTS a null terminated string pointed to by HL.
+F084: 7E       [ 7]     	LD	A,(HL)
+F085: B7       [11]     	OR	A
+F086: C8       [16|22]  	RET	Z
+F087: CD80F0   [33]     	CALL	PUTCHAR
+F08A: 23       [39]     	INC	HL
+F08B: 18F7     [51]     	JR	PUTS
+                        
+F08D:                   GETS:
+                        	; Buffer address passed in HL
+                        	; Save HL
+F08D: 545D     [ 8]     	LD	DE,HL
+F08F:                   GETS.LP1:
+                        	; while GETCHAR() != \n
+F08F: CD82F0   [17]     	CALL	GETCHAR
+F092: FE0D     [24]     	CP	13
+F094: 2828     [31|36]  	JR	Z,GETS.END
+                        
+                        	; Check if a == \e
+F096: FE1B     [38]     	CP	27
+                        	; BUG/WONTFIX: Doesn't handle escape sequences... Therefore DELETE
+                        	; won't work.
+                        	; Discard ESC
+F098: 28F5     [45|50]  	JR	Z,GETS.LP1
+                        
+                        	; Check if a == \b
+F09A: FE08     [52]     	CP	8
+                        	; If not then continue with character.
+F09C: 2007     [59|64]  	JR	NZ,GETS.LP3
+                        	; If so then:
+                        	; 16-bit compare between HL and DE
+                        	; Carry is clear before operation.
+F09E: ED52     [74]     	SBC	HL,DE
+F0A0: 19       [85]     	ADD	HL,DE
+                        	; DE == HL, don't do anything!
+F0A1: 28EC     [92|97]  	JR	Z,GETS.LP1
+                        	; DE < HL, go back one.
+F0A3: 3007     [99|104] 	JR	NC,GETS.BSP
+                        
+F0A5:                   GETS.LP3:
+                        	; Print and store character in buffer.
+F0A5: CD80F0   [17]     	CALL	PUTCHAR
+F0A8: 77       [24]     	LD	(HL),A
+F0A9: 23       [30]     	INC	HL
+F0AA: 18E3     [42]     	JR	GETS.LP1
+                        
+F0AC:                   GETS.BSP:
+                        	; Move back in the buffer, and overwrite the screen.
+F0AC: 2B       [ 6]     	DEC	HL
+F0AD: 3E08     [13]     	LD	A,8
+F0AF: CD80F0   [30]     	CALL	PUTCHAR
+F0B2: 3E20     [37]     	LD	A,32
+F0B4: CD80F0   [54]     	CALL	PUTCHAR
+F0B7: 3E08     [61]     	LD	A,8
+F0B9: CD80F0   [78]     	CALL	PUTCHAR
+F0BC: 18D1     [90]     	JR	GETS.LP1
+                        
+F0BE:                   GETS.END:
+                        	; NULL terminator
+F0BE: 3600     [10]     	LD	(HL),0
+                        	; Restore HL
+F0C0: 626B     [18]     	LD	HL,DE
+F0C2: C9       [28]     	RET
+                        
+F0C3: 4D4F4E32          STRING.COPYRIGHT:	DB "MON2014 Copyright (C) 2018-2019, Bradan J. Wolbeck"
+F0C7: 30313420          
+F0CB: 436F7079          
+F0CF: 72696768          
+F0D3: 74202843          
+F0D7: 29203230          
+F0DB: 31382D32          
+F0DF: 3031392C          
+F0E3: 20427261          
+F0E7: 64616E20          
+F0EB: 4A2E2057          
+F0EF: 6F6C6265          
+F0F3: 636B              
+F0F5: 00                STRING.COPYRIGHT.END:	DB EOS
+F0F6: 0D0A5D20          STRING.PROMPT:		DB CR, LF, "] ", EOS
+F0FA: 00                
+F0FB: 203F00            STRING.ERROR:		DB " ?", EOS
+F0FE: 1B5B324A          STRING.CLEAR_SCREEN:	DB ESC, "[2J", EOS
+F102: 00                
+F103: 1B5B4800          STRING.HOME_CURSOR:	DB ESC, "[H", EOS
+F107: 0D0A4845          STRING.ACTION.HELP:	DB CR, LF, "HELP:"
+F10B: 4C503A            
+F10E: 0D0A3F09          STRING.HELP.1:		DB CR, LF, "?", TAB, TAB, "Print Help"
+F112: 09507269          
+F116: 6E742048          
+F11A: 656C70            
+F11D: 0D0A5209          STRING.HELP.2:		DB CR, LF, "R", TAB, TAB, "Return to ROM BASIC"
+F121: 09526574          
+F125: 75726E20          
+F129: 746F2052          
+F12D: 4F4D2042          
+F131: 41534943          
+F135: 0D0A4720          STRING.HELP.3:		DB CR, LF, "G ?ADDR", TAB, TAB, "Goto Address"
+F139: 3F414444          
+F13D: 52090947          
+F141: 6F746F20          
+F145: 41646472          
+F149: 657373            
+F14C: 0D0A5320          STRING.HELP.4:		DB CR, LF, "S ?V ?ADDR", TAB, "Store Value"
+F150: 3F56203F          
+F154: 41444452          
+F158: 0953746F          
+F15C: 72652056          
+F160: 616C7565          
+F164: 0D0A5820          STRING.HELP.5:		DB CR, LF, "X ?ADDR", TAB, TAB, "Read Data"
+F168: 3F414444          
+F16C: 52090952          
+F170: 65616420          
+F174: 44617461          
+F178: 0D0A4320          STRING.HELP.6:		DB CR, LF, "C R ?S ?ADDR", TAB, "Read CF Sector"
+F17C: 52203F53          
+F180: 203F4144          
+F184: 44520952          
+F188: 65616420          
+F18C: 43462053          
+F190: 6563746F          
+F194: 72                
+F195: 0D0A4320          STRING.HELP.7:		DB CR, LF, "C W ?S ?ADDR", TAB, "Write CF Sector"
+F199: 57203F53          
+F19D: 203F4144          
+F1A1: 44520957          
+F1A5: 72697465          
+F1A9: 20434620          
+F1AD: 53656374          
+F1B1: 6F72              
+F1B3: 00                STRING.HELP.END:	DB EOS
+
+
+; +++ segments +++
+
+#CODE          = $F000 = 61440,  size = $01B4 =   436
+
+; +++ global symbols +++
+
+ACIA_GETCHAR          = $F07E = 61566          ACIA.ASM:16
+ACIA_PUTCHAR          = $F07C = 61564          ACIA.ASM:11
+A_BUFFER              = $FF00 = 65280          MON2014.ASM:14
+CR                    = $000D =    13          CHARSET.ASM:11
+EOS                   = $0000 =     0          CHARSET.ASM:14
+ESC                   = $001B =    27          CHARSET.ASM:10
+GETCHAR               = $F082 = 61570          STDIO.ASM:15
+GETS                  = $F08D = 61581          STDIO.ASM:27
+GETS.BSP              = $F0AC = 61612          STDIO.ASM:65
+GETS.END              = $F0BE = 61630          STDIO.ASM:76
+GETS.LP1              = $F08F = 61583          STDIO.ASM:31
+GETS.LP3              = $F0A5 = 61605          STDIO.ASM:58
+HEX2A                 = $F061 = 61537          MON2014.ASM:106
+HEX2A.1               = $F074 = 61556          MON2014.ASM:123
+HEX2BC                = $F056 = 61526          MON2014.ASM:95
+LF                    = $000A =    10          CHARSET.ASM:12
+MON2014               = $F000 = 61440          MON2014.ASM:18 (unused)
+MON2014.BEGIN         = $F000 = 61440          MON2014.ASM:21 (unused)
+MON2014.COMMAND.CFCARD = $F044 = 61508          MON2014.ASM:81
+MON2014.COMMAND.EXAMINE = $F042 = 61506          MON2014.ASM:78
+MON2014.COMMAND.GOTO  = $F038 = 61496          MON2014.ASM:68
+MON2014.COMMAND.HELP  = $F046 = 61510          MON2014.ASM:84
+MON2014.COMMAND.STORE = $F040 = 61504          MON2014.ASM:75
+MON2014.ERROR         = $F04E = 61518          MON2014.ASM:89
+MON2014.PARSE_INPUT   = $F01E = 61470          MON2014.ASM:44 (unused)
+MON2014.PROMPT_USER   = $F012 = 61458          MON2014.ASM:31
+PUTCHAR               = $F080 = 61568          STDIO.ASM:12
+PUTS                  = $F084 = 61572          STDIO.ASM:18
+STRING.ACTION.HELP    = $F107 = 61703          MON2014.ASM:138
+STRING.CLEAR_SCREEN   = $F0FE = 61694          MON2014.ASM:136
+STRING.COPYRIGHT      = $F0C3 = 61635          MON2014.ASM:132
+STRING.COPYRIGHT.END  = $F0F5 = 61685          MON2014.ASM:133 (unused)
+STRING.ERROR          = $F0FB = 61691          MON2014.ASM:135
+STRING.HELP.1         = $F10E = 61710          MON2014.ASM:139 (unused)
+STRING.HELP.2         = $F11D = 61725          MON2014.ASM:140 (unused)
+STRING.HELP.3         = $F135 = 61749          MON2014.ASM:141 (unused)
+STRING.HELP.4         = $F14C = 61772          MON2014.ASM:142 (unused)
+STRING.HELP.5         = $F164 = 61796          MON2014.ASM:143 (unused)
+STRING.HELP.6         = $F178 = 61816          MON2014.ASM:144 (unused)
+STRING.HELP.7         = $F195 = 61845          MON2014.ASM:145 (unused)
+STRING.HELP.END       = $F1B3 = 61875          MON2014.ASM:146 (unused)
+STRING.HOME_CURSOR    = $F103 = 61699          MON2014.ASM:137
+STRING.PROMPT         = $F0F6 = 61686          MON2014.ASM:134
+TAB                   = $0009 =     9          CHARSET.ASM:13
+_end                  = $F1B4 = 61876          CHARSET.ASM:2 (unused)
+_size                 = $01B4 =   436          CHARSET.ASM:2 (unused)
+
+
+total time: 0.0198 sec.
+no errors
