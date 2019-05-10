@@ -78,7 +78,7 @@ CFDRV.READSEC.WAIT1:
 	OUT	CFDRV.R6,A
 	; Read sectors command.
 	LD	A,$20
-	OUT	CFDRV.R7
+	OUT	CFDRV.R7,A
 CFDRV.READSEC.WAIT2:
 	; Busy must be unset, and DRQ must be set.
 	CALL	CFDRV.WAITBUSY

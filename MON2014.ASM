@@ -18,6 +18,7 @@ CFDRV.CFG.PORT:	.EQU $E0
 
 MON2014:
 	; This label is called from BASIC via HEXLOAD.BAS
+	CALL	CFDRV.INIT
 
 MON2014.BEGIN:
 	; Clear screen, and home cursor.
@@ -80,6 +81,9 @@ MON2014.COMMAND.EXAMINE:
 	JR	MON2014.ERROR
 
 MON2014.COMMAND.CFCARD:
+	; Temp test case read.
+	LD	HL,$D000
+	CALL	CFDRV.READSEC
 	JR	MON2014.ERROR
 
 MON2014.COMMAND.HELP:
@@ -129,6 +133,7 @@ HEX2A.1:
 	RET
 
 #include "include/STDIO.ASM"
+#include "include/CFDRV.ASM"
 
 STRING.COPYRIGHT:	DB "MON2014 Copyright (C) 2018-2019, Bradan J. Wolbeck"
 STRING.COPYRIGHT.END:	DB EOS
