@@ -26,92 +26,114 @@ CFDRV.RSTATUS	.EQU CFDRV.R7
 CFDRV.RCOMMAND	.EQU CFDRV.R7
 
 CFDRV.INIT:
+	LD	HL,CFDRV.MSG.INIT
+	CALL	PUTS
 	; Initialize the CompactFlash card.
-	CALL	CFDRV.WAITBUSY
 	; Set feature: 8-bit transfers.
+	CALL	CFDRV.WAITBUSY
 	LD	A,$01
 	OUT	CFDRV.R1,A
+
+	CALL	CFDRV.WAITBUSY
 	LD	A,$EF
 	OUT	CFDRV.R7,A
+
 	; Set feature: Disable write cache.
+	CALL	CFDRV.WAITBUSY
 	LD	A,$82
 	OUT	CFDRV.R1,A
+
+	CALL	CFDRV.WAITBUSY
 	LD	A,$EF
 	OUT	CFDRV.R7,A
+
+	; Set sector count to $01
+	CALL	CFDRV.WAITBUSY
+	LD	A,$01
+	OUT	CFDRV.R2,A
+
 	; Done
 	RET
 
 CFDRV.WAITBUSY:
 	; Wait until the busy bit ($80) of register 7 is unset.
 	IN	A,CFDRV.R7
-	AND	$80
-	RET	Z
-	JR	CFDRV.WAITBUSY
+	AND	%10000000
+	JR	NZ,CFDRV.WAITBUSY
+	RET
 
-CFDRV.WAITREADY:
-	; Wait until the ready bit ($40) of register 7 is set.
+CFDRV.WAITCMD:
+	; Wait until the ready bit ($40) of register 7 is set,
+	; and the busy bit ($80) is unset.
 	IN	A,CFDRV.R7
-	AND	$40
-	RET	NZ
-	JR	CFDRV.WAITREADY
+	AND	%11000000
+	XOR	%01000000
+	JR	NZ,CFDRV.WAITCMD
+	RET
 
-CFDRV.WAITDRQ:
-	; Wait until the DRQ bit ($08) of register 7 is set.
+CFDRV.WAITDAT:
+	; Wait until the DRQ bit ($08) of register 7 is set,
+	; and the busy bit ($80) is unset.
 	IN	A,CFDRV.R7
-	AND	$08
-	RET	NZ
-	JR	CFDRV.WAITDRQ
+	AND	%10001000
+	XOR	%00001000
+	JR	NZ,CFDRV.WAITDAT
+	RET
+
+CFDRV.SETLBA:
+	LD	HL,CFDRV.MSG.SETLBA
+	CALL	PUTS
+	; Load the LBA address from IX and IY
+	CALL	CFDRV.WAITBUSY
+	LD	A,IXL		; LBA Bits 0-7
+	OUT	CFDRV.R3,A
+	CALL	CFDRV.WAITBUSY
+	LD	A,IXH		; LBA Bits 8-15
+	OUT	CFDRV.R4,A
+	CALL	CFDRV.WAITBUSY
+	LD	A,IYL		; LBA Bits 16-23
+	OUT	CFDRV.R5,A
+	CALL	CFDRV.WAITBUSY
+	LD	A,IYH		; LBA Bits 24-27
+	OR	$E0		; Set LBA Mode
+	OUT	CFDRV.R6,A
+	; Done
+	RET
 
 CFDRV.READSEC:
 	; Read a sector from the CF card (512 bytes),
 	; and store beginning at the address provided by HL.
-	; LBA of sector on stack. (Hardcoded to 0 for now)
-CFDRV.READSEC.WAIT1:
-	; Busy must be unset and Ready must be set.
-	CALL	CFDRV.WAITBUSY
-	CALL	CFDRV.WAITREADY
-	; Confirm conditions simultaneously met.
-	IN	A,CFDRV.R7
-	AND	$C0
-	CP	$40
-	; If not, try again.
-	JR	NZ,CFDRV.READSEC.WAIT1
-; Continue
-	; Set sector count to $01
-	LD	A,$01
-	OUT	CFDRV.R2,A
-	; Load the LBA address (hard coded to 0 for now)
-	XOR	A
-	OUT	CFDRV.R3,A
-	OUT	CFDRV.R4,A
-	OUT	CFDRV.R5,A
-	OR	$E0
-	OUT	CFDRV.R6,A
+	LD	DE,HL
+	LD	HL,CFDRV.MSG.READ
+	CALL	PUTS
+	LD	HL,DE
+	; Wait until device ready for command.
+	CALL	CFDRV.WAITCMD
 	; Read sectors command.
 	LD	A,$20
 	OUT	CFDRV.R7,A
-CFDRV.READSEC.WAIT2:
-	; Busy must be unset, and DRQ must be set.
-	CALL	CFDRV.WAITBUSY
-	CALL	CFDRV.WAITDRQ
-	; Confirm conditions simultaneously met.
+	; Wait until device ready with data.
+	CALL	CFDRV.WAITDAT
 	IN	A,CFDRV.R7
-	AND	$88
-	CP	$08
-	; If not, retry.
-	JR	NZ,CFDRV.READSEC.WAIT2
-; Continue
-	; Read 512 bytes to the pointer HL.
-	; Set port
-	LD	C,CFDRV.R0
-
-	LD	HL,$D000
-	LD	B,$FF
-	INIR
-
-	LD	HL,$D100
-	LD	B,$FF
-	INIR
-
+	AND	%00000001
+	JR	NZ,CFDRV.READSEC
+	LD	B,0
+CFDRV.READSEC.LOOP:
+	LD	A,'.'
+	CALL	PUTCHAR
+	; Write 512 bytes from IO starting at the pointer HL.
+	CALL	CFDRV.WAITDAT
+	IN	A,CFDRV.R0
+	LD	(HL),A
+	INC	HL
+	CALL	CFDRV.WAITDAT
+	IN	A,CFDRV.R0
+	LD	(HL),A
+	INC	HL
+	DJNZ	CFDRV.READSEC.LOOP
 	; Done
 	RET
+
+CFDRV.MSG.INIT:		DB CR, LF, "CFDRV Init", EOS
+CFDRV.MSG.SETLBA:	DB CR, LF, "CFDRV Set LBA", EOS
+CFDRV.MSG.READ:		DB CF, LF, "CFDRV Read Xfer", EOS
