@@ -7,23 +7,11 @@
 ;
 ; Please see LICENSE in this project's root directory for license information.
 
-#include "ACIA.ASM"
+#include "GETCHAR.ASM"
+#include "PUTCHAR.ASM"
+#include "PUTS.ASM"
 
-PUTCHAR:
-	JR	ACIA_PUTCHAR
-
-GETCHAR:
-	JR	ACIA_GETCHAR
-
-PUTS:
-	; OutPUTS a null terminated string pointed to by HL.
-	LD	A,(HL)
-	OR	A
-	RET	Z
-	CALL	PUTCHAR
-	INC	HL
-	JR	PUTS
-
+; gets.asm
 GETS:
 	; Buffer address passed in HL
 	; Save HL

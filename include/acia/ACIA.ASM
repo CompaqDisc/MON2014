@@ -8,12 +8,12 @@
 ;
 ; Please see LICENSE in this project's root directory for license information.
 
-ACIA_PUTCHAR:
+ACIA_PUTC:
 	; Outputs the byte in A.
 	RST	08H
 	RET
 
-ACIA_GETCHAR:
+ACIA_GETC:
 	; Collects the next byte in A.
 	RST	10H
 	RET
