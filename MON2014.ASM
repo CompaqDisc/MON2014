@@ -68,22 +68,19 @@ MON2014.PARSE_INPUT:
 	JR	MON2014.ERROR			; default:
 
 MON2014.COMMAND.GOTO:
-	INC	HL				; Skip past command and space
-	INC	HL
-	CALL	HEX2BC
-	LD	HL,BC
-	JP	(HL)
+	INC	HL				; Skip command letter
+	INC	HL				; Skip space
+	CALL	HEX2BC				; Parse address into BC
+	LD	HL,BC				; Load in prep for jump
+	JP	(HL)				; Perform the jump
 
 MON2014.COMMAND.STORE:
-	INC	HL				; Skip past command and space
-	INC	HL
-	CALL	HEX2BC
-	INC	HL
-	INC	HL
-	INC	HL
-	CALL	HEX2A
-	LD	HL,BC
-	LD	(HL),A
+	INC	HL				; Skip command letter
+	INC	HL				; Skip space
+	CALL	HEX2BC				; Parse address into BC
+	INC	HL				; Skip space
+	CALL	HEX2A				; Parse value into A
+	LD	(BC),A				; Store A via indirect addressing
 	JR	MON2014.PROMPT_USER
 
 MON2014.COMMAND.EXAMINE:
@@ -118,6 +115,8 @@ HEX2BC:
 	INC	HL
 	CALL	HEX2A
 	LD	C,A
+	INC	HL
+	INC	HL
 	RET
 
 HEX2A:
@@ -144,7 +143,9 @@ HEX2A.1:
 	SUB	A,'A'-'0'-10
 	RET
 
-#include "include/STDIO.ASM"
+#include "include/acia/ACIA.ASM"
+#include "include/acia/DRIVER.ASM"
+#include "include/stdio/STDIO.ASM"
 #include "include/CFDRV.ASM"
 
 STRING.COPYRIGHT:	DB "MON2014 Copyright (C) 2018-2019, Bradan J. Wolbeck"
