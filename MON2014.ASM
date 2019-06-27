@@ -35,56 +35,85 @@ MON2014.PROMPT_USER:
 	LD	HL,STRING.PROMPT
 	CALL	PUTS
 
-	; Idealy the main structure should look like:
-	; Prompt > Get Input > Parse/Correct > Error/Execute > Repeat
-
 	; Set HL to head of input buffer
 	; Get string to buffer.
 	LD	HL,A_BUFFER
 	CALL	GETS
 
 MON2014.PARSE_INPUT:
-	LD	A,(HL)
+	LD	A,(HL)				; Store command letter
+	INC	HL				; Skip letter
+	INC	HL				; Skip space
 
 	; switch(A)
 	CP	'R'				; case 'R':
-	RET	Z
+	JP	Z,$0000
 
 	CP	'G'				; case 'G':
-	JR	Z,MON2014.COMMAND.GOTO
+	JP	Z,MON2014.COMMAND.GOTO
 
 	CP	'S'				; case 'S':
-	JR	Z,MON2014.COMMAND.STORE
+	JP	Z,MON2014.COMMAND.STORE
 
 	CP	'X'				; case 'X':
-	JR	Z,MON2014.COMMAND.EXAMINE
+	JP	Z,MON2014.COMMAND.EXAMINE
 
 	CP	'C'				; case 'C':
-	JR	Z,MON2014.COMMAND.CFCARD	; CF not yet implemented
+	JP	Z,MON2014.COMMAND.CFCARD
 
 	CP	'?'				; case '?':
-	JR	Z,MON2014.COMMAND.HELP
+	JP	Z,MON2014.COMMAND.HELP
 
-	JR	MON2014.ERROR			; default:
+	JP	MON2014.ERROR			; default:
 
 MON2014.COMMAND.GOTO:
-	INC	HL				; Skip command letter
-	INC	HL				; Skip space
 	CALL	HEX2BC				; Parse address into BC
 	LD	HL,BC				; Load in prep for jump
 	JP	(HL)				; Perform the jump
 
 MON2014.COMMAND.STORE:
-	INC	HL				; Skip command letter
-	INC	HL				; Skip space
 	CALL	HEX2BC				; Parse address into BC
 	INC	HL				; Skip space
 	CALL	HEX2A				; Parse value into A
 	LD	(BC),A				; Store A via indirect addressing
-	JR	MON2014.PROMPT_USER
+	JP	MON2014.PROMPT_USER
 
 MON2014.COMMAND.EXAMINE:
-	JR	MON2014.ERROR
+	CALL	HEX2BC				; Get address in BC
+	LD	HL,BC				; Back up BC
+
+	LD	E,16				; Loop count for 16 lines of hexdump.
+EXAMINE.LOOPLINE
+	LD	A,CR				; Print newline.
+	CALL	PUTCHAR
+	LD	A,LF
+	CALL	PUTCHAR
+
+	CALL	DISPHL				; Print address
+
+	LD	A,$20				; 3 Spaces
+	CALL	PUTCHAR
+	LD	A,$20
+	CALL	PUTCHAR
+	LD	A,$20
+	CALL	PUTCHAR
+
+	LD	D,16				; Loop count for 16 values/line
+EXAMINE.LOOPVAL
+	LD	A,(HL)				; Get value in C, print value.
+	LD	C,A
+	CALL	OUTHEX8
+	INC	HL				; Next value address.
+
+	LD	A,$20				; Print space
+	CALL	PUTCHAR
+
+	DEC	D
+	JR	NZ,EXAMINE.LOOPVAL		; Decide loop for 16 values/line.
+	DEC	E
+	JR	NZ,EXAMINE.LOOPLINE		; Decide loop for line.
+
+	JP	MON2014.PROMPT_USER
 
 MON2014.COMMAND.CFCARD:
 	; Fixed-LBA test read.
@@ -93,19 +122,22 @@ MON2014.COMMAND.CFCARD:
 	CALL	CFDRV.SETLBA
 	LD	HL,$D000	; Data Buffer
 	CALL	CFDRV.READSEC
-	JR	MON2014.PROMPT_USER
+	JP	MON2014.PROMPT_USER
 
 MON2014.COMMAND.HELP:
 	LD	HL,STRING.ACTION.HELP
 	CALL	PUTS
-	JR	MON2014.PROMPT_USER
+	JP	MON2014.PROMPT_USER
 
 MON2014.ERROR:
 	; Print a trailing '?', indicating an error.
 	LD	HL,STRING.ERROR
 	CALL	PUTS
-	JR	MON2014.PROMPT_USER
+	JP	MON2014.PROMPT_USER
 
+; ======================================
+; | Store HEX version of value in BC/A |
+; ======================================
 HEX2BC:
 	; Takes HL as a pointer to a buffer.
 	; Gets value from ASCII HEX (reads 4 bytes) and stores in BC.
@@ -142,6 +174,28 @@ HEX2A.1:
 	RET	C
 	SUB	A,'A'-'0'-10
 	RET
+; ==================================
+
+DISPHL:
+	LD	C,H
+	CALL	OUTHEX8
+	LD	C,L
+OUTHEX8:
+	LD	A,C
+	RRA
+	RRA
+	RRA
+	RRA
+	CALL	CONV
+	LD	A,C
+CONV:
+	AND	$0F
+	ADD	A,$90
+	DAA
+	ADC	A,$40
+	DAA
+	CALL	PUTCHAR
+	RET
 
 #include "include/acia/ACIA.ASM"
 #include "include/acia/DRIVER.ASM"
@@ -156,7 +210,7 @@ STRING.CLEAR_SCREEN:	DB ESC, "[2J", EOS
 STRING.HOME_CURSOR:	DB ESC, "[H", EOS
 STRING.ACTION.HELP:	DB CR, LF, "HELP:"
 STRING.HELP.1:		DB CR, LF, "?",       TAB, TAB, "Print Help"
-STRING.HELP.2:		DB CR, LF, "R",       TAB, TAB, "Return to ROM BASIC"
+STRING.HELP.2:		DB CR, LF, "R",       TAB, TAB, "Reset Computer"
 STRING.HELP.3:		DB CR, LF, "G ?ADDR", TAB, TAB, "Goto Address"
 STRING.HELP.4:		DB CR, LF, "S ?ADDR ?V",   TAB, "Store Value"
 STRING.HELP.5:		DB CR, LF, "X ?ADDR", TAB, TAB, "Read Data"
