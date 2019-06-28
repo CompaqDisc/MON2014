@@ -18,6 +18,9 @@ CFDRV.CFG.PORT:	.EQU $E0
 
 MON2014:
 	; This label is called from BASIC via HEXLOAD.BAS
+	;LD	SP,$A000			; Haven't needed the stack yet...
+						; Might end up relocating the application
+						; further along in development.
 	CALL	CFDRV.INIT
 
 MON2014.BEGIN:
@@ -116,12 +119,35 @@ EXAMINE.LOOPVAL
 	JP	MON2014.PROMPT_USER
 
 MON2014.COMMAND.CFCARD:
-	; Fixed-LBA test read.
-	LD	IX,$0000	; Low LBA
-	LD	IY,$0000	; High LBA
+	; Parse/set LBA
+	CALL	HEX2BC
+	LD	IYH,B		; LBA 24-27
+	LD	IYL,C		; LBA 16-23
+	CALL	HEX2BC
+	LD	IXH,B		; LBA 8-15
+	LD	IXL,C		; LBA 0-7
 	CALL	CFDRV.SETLBA
-	LD	HL,$D000	; Data Buffer
+	; Parse dest addr.
+	INC	HL
+	CALL	HEX2BC
+	; Decide R/W
+	INC	HL
+	LD	A,(HL)
+	CP	'R'
+	JR	Z,MON2014.COMMAND.CFCARD.READ
+	CP	'W'
+	JR	Z,MON2014.COMMAND.CFCARD.WRITE
+
+	JP	MON2014.ERROR
+
+MON2014.COMMAND.CFCARD.READ:
+	LD	HL,BC		; Pointer
 	CALL	CFDRV.READSEC
+	JP	MON2014.PROMPT_USER
+
+MON2014.COMMAND.CFCARD.WRITE:
+	LD	HL,BC		; Pointer
+	CALL	CFDRV.WRITESEC
 	JP	MON2014.PROMPT_USER
 
 MON2014.COMMAND.HELP:
@@ -209,11 +235,11 @@ STRING.ERROR:		DB " ?", EOS
 STRING.CLEAR_SCREEN:	DB ESC, "[2J", EOS
 STRING.HOME_CURSOR:	DB ESC, "[H", EOS
 STRING.ACTION.HELP:	DB CR, LF, "HELP:"
-STRING.HELP.1:		DB CR, LF, "?",       TAB, TAB, "Print Help"
-STRING.HELP.2:		DB CR, LF, "R",       TAB, TAB, "Reset Computer"
-STRING.HELP.3:		DB CR, LF, "G ?ADDR", TAB, TAB, "Goto Address"
-STRING.HELP.4:		DB CR, LF, "S ?ADDR ?V",   TAB, "Store Value"
-STRING.HELP.5:		DB CR, LF, "X ?ADDR", TAB, TAB, "Read Data"
-STRING.HELP.6:		DB CR, LF, "C R ?S ?ADDR", TAB, "Read CF Sector"
-STRING.HELP.7:		DB CR, LF, "C W ?S ?ADDR", TAB, "Write CF Sector"
+STRING.HELP.1:		DB CR, LF, "?",       TAB, TAB, TAB, "Print Help"
+STRING.HELP.2:		DB CR, LF, "R",       TAB, TAB, TAB, "Reset Computer"
+STRING.HELP.3:		DB CR, LF, "G ?ADDR", TAB, TAB, TAB, "Goto Address"
+STRING.HELP.4:		DB CR, LF, "S ?ADDR ?V",   TAB, TAB, "Store Value"
+STRING.HELP.5:		DB CR, LF, "X ?ADDR", TAB, TAB, TAB, "Examine Data"
+STRING.HELP.6:		DB CR, LF, "C ?LBA32 ?ADDR R",  TAB, "Read CF Sector"
+STRING.HELP.7:		DB CR, LF, "C ?LBA32 ?ADDR W",  TAB, "Write CF Sector"
 STRING.HELP.END:	DB EOS

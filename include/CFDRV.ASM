@@ -47,6 +47,7 @@ CFDRV.INIT:
 	LD	A,$EF
 	OUT	CFDRV.R7,A
 
+CFDRV.SETCOUNT:
 	; Set sector count to $01
 	CALL	CFDRV.WAITBUSY
 	LD	A,$01
@@ -81,8 +82,6 @@ CFDRV.WAITDAT:
 	RET
 
 CFDRV.SETLBA:
-	LD	HL,CFDRV.MSG.SETLBA
-	CALL	PUTS
 	; Load the LBA address from IX and IY
 	CALL	CFDRV.WAITBUSY
 	LD	A,IXL		; LBA Bits 0-7
@@ -107,6 +106,8 @@ CFDRV.READSEC:
 	LD	HL,CFDRV.MSG.READ
 	CALL	PUTS
 	LD	HL,DE
+	; Set sector count to one.
+	CALL	CFDRV.SETCOUNT
 	; Wait until device ready for command.
 	CALL	CFDRV.WAITCMD
 	; Read sectors command.
@@ -121,7 +122,7 @@ CFDRV.READSEC:
 CFDRV.READSEC.LOOP:
 	LD	A,'.'
 	CALL	PUTCHAR
-	; Write 512 bytes from IO starting at the pointer HL.
+	; Read 512 bytes from IO starting at the pointer HL.
 	CALL	CFDRV.WAITDAT
 	IN	A,CFDRV.R0
 	LD	(HL),A
@@ -134,6 +135,43 @@ CFDRV.READSEC.LOOP:
 	; Done
 	RET
 
+CFDRV.WRITESEC:
+	; Write a sector to the CF card (512 bytes),
+	; and read beginning at the address provided by HL.
+	LD	DE,HL
+	LD	HL,CFDRV.MSG.WRITE
+	CALL	PUTS
+	LD	HL,DE
+	; Set sector count to one.
+	CALL	CFDRV.SETCOUNT
+	; Wait until device ready for command.
+	CALL	CFDRV.WAITCMD
+	; Write sectors command.
+	LD	A,$30
+	OUT	CFDRV.R7,A
+	; Wait until device ready to accept data.
+	CALL	CFDRV.WAITDAT
+	IN	A,CFDRV.R7
+	AND	%00000001
+	JR	NZ,CFDRV.WRITESEC
+	LD	B,0
+CFDRV.WRITESEC.LOOP:
+	LD	A,'.'
+	CALL	PUTCHAR
+	; Write 512 bytes to IO starting at the pointer HL.
+	CALL	CFDRV.WAITDAT
+	LD	A,(HL)
+	OUT	CFDRV.R0,A
+	INC	HL
+	CALL	CFDRV.WAITDAT
+	LD	A,(HL)
+	OUT	CFDRV.R0,A
+	INC	HL
+	DJNZ	CFDRV.WRITESEC.LOOP
+	; Done
+	RET
+
 CFDRV.MSG.INIT:		DB CR, LF, "CFDRV Init", EOS
 CFDRV.MSG.SETLBA:	DB CR, LF, "CFDRV Set LBA", EOS
 CFDRV.MSG.READ:		DB CR, LF, "CFDRV Read Xfer", EOS
+CFDRV.MSG.WRITE:	DB CR, LF, "CFDRV Write Xfer", EOS
