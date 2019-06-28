@@ -16,6 +16,7 @@ Just run `make` when ready.
 
 ## Usage
 When started, you will be greeted with some text and a square bracket prompt. Type in `?`, followed by enter to see the help text.
+
 ![Screenshot of Help Screen](https://i.imgur.com/ci5ck29.png  "Help Screen")
 
 **Reset**
@@ -29,6 +30,7 @@ The `S` command takes an address, followed by a value. The given value is then s
 
 **Examine**
 The `X` command takes an address, then generates a hexdump of the next 256 memory values, starting at the given address.
+
 ![Screenshot of Hexdump](https://i.imgur.com/mNH3hLt.png  "Hexdump")
 
 **CompactFlash Access**
@@ -37,5 +39,6 @@ The `C` command allows the user to read and write sectors to the CompactFlash de
 The first parameter is a 32-bit hex value representing the 28-bit LBA address of the sector. The second is a memory address to read from/write to. The last character in the command denotes a read or write operation.
 
 For example `C 00000800 D000 R` will request sector $00000800 from the CompactFlash, and read in 512 bytes, starting at $D000.
+
 ![Screenshot of CompactFlash hexdump](https://i.imgur.com/hx4sUiV.png  "CompactFlash hexdump")
 ![Screenshot of CompactFlash hexdump 2](https://i.imgur.com/tkWCeTD.png  "CompactFlash hexdump 2") 
