@@ -79,7 +79,45 @@ MON2014.COMMAND.STORE:
 	INC	HL				; Skip space
 	CALL	HEX2A				; Parse value into A
 	LD	(BC),A				; Store A via indirect addressing
-	JP	MON2014.PROMPT_USER
+
+MON2014.COMMAND.STORE.NEXT
+	LD	HL,BC				; Move address to HL
+
+	INC	HL				; Next address
+	LD	A,13				; Print a newline
+	CALL	PUTCHAR
+	LD	A,10
+	CALL	PUTCHAR
+
+	CALL	DISPHL				; Print address
+
+	LD	A,$20				; Space
+	CALL	PUTCHAR
+	LD	A,'['				; Brackets around value
+	CALL	PUTCHAR
+	LD	C,(HL)
+	CALL	OUTHEX8
+	LD	A,']'
+	CALL	PUTCHAR
+
+	LD	A,'?'
+	CALL	PUTCHAR
+	LD	A,$20
+	CALL	PUTCHAR
+
+MON2014.COMMAND.STORE.INPUT:
+	LD	BC,HL				; Save HL before loading buffer address.
+	LD	HL,A_BUFFER
+	CALL	GETS
+	LD	A,(A_BUFFER)			; If null, no value entered.
+	OR	A
+	JR	Z,MON2014.COMMAND.STORE.NEXT
+	CP	'Q'				; Quit/Exit
+	JP	Z,MON2014.PROMPT_USER
+	CALL	HEX2A
+	LD	HL,BC
+	LD	(HL),A
+	JR	MON2014.COMMAND.STORE.NEXT
 
 MON2014.COMMAND.EXAMINE:
 	CALL	HEX2BC				; Get address in BC
