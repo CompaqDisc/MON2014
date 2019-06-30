@@ -29,6 +29,8 @@ The `G` command takes in an address to jump to. For example: `G F000` will resta
 **Store**
 The `S` command takes an address, followed by a value. The given value is then stored at the address. 
 
+The monitor then goes into constant-store mode, taking values to store until exited with 'Q'. You may opt to not modify a value by simply entering nothing.
+
 **Examine**
 The `X` command takes an address, then generates a hexdump of the next 256 memory values, starting at the given address.
 
